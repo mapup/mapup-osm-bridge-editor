@@ -7,7 +7,7 @@ This repository contains Python and JavaScript scripts using which we plan to ad
 ## Architecture
 
 - Two independent association pipelines: **hydrography approach** (NHD stream matching) and **mile-point approach** (LRS interpolation)
-- Hydrography pipeline orchestrated by `hydrography-approach/run-hydrography-pipeline.py`; stages: filter → tag → associate → project → fuzzy-match → deduplicate
+- Hydrography pipeline orchestrated by `hydrography-approach/run-hydrography-pipeline.py`; stages: filter → tag → associate → project-coords-onto-ways → fuzzy-match → deduplicate
 - Mile-point pipeline uses LRS milepoint data to interpolate bridge positions onto OSM way geometries
 - Merge script (`merge-approaches/`) combines outputs from both pipelines
 - JOSM scripting plugin (JS/Jython) splits OSM ways and applies `bridge=yes` tags
