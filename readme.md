@@ -1,4 +1,4 @@
-# edit-osm-add-missing-bridge-for-truck-restriction
+# mapup-osm-bridge-editor
 
 ## Introduction
 
