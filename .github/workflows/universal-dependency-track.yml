@@ -11,7 +11,7 @@ on:
       - master
   schedule:
     # Run daily at 9am UTC
-    - cron: '0 9 * * *'
+    - cron: "0 9 * * *"
   workflow_dispatch: # Allow manual trigger
 
 jobs:
@@ -26,26 +26,26 @@ jobs:
         if: hashFiles('**/package.json') != ''
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: "18"
 
       - name: Setup Python (if needed)
         if: hashFiles('**/requirements.txt', '**/pyproject.toml', '**/setup.py') != ''
         uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: "3.x"
 
       - name: Setup Go (if needed)
         if: hashFiles('**/go.mod') != ''
         uses: actions/setup-go@v5
         with:
-          go-version: 'stable'
+          go-version: "stable"
 
       - name: Setup Java (if needed)
         if: hashFiles('**/pom.xml', '**/build.gradle', '**/build.gradle.kts') != ''
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '17'
+          distribution: "temurin"
+          java-version: "17"
 
       - name: Install dependencies (all languages, including monorepos)
         run: |
@@ -120,15 +120,17 @@ jobs:
           echo "✅ Dependency installation complete"
         continue-on-error: true
 
-      - name: Install Trivy
-        run: |
-          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
-
       - name: Generate SBOM with Trivy
-        run: |
-          echo "🔍 Scanning repository for dependencies and licenses..."
-          trivy fs --format cyclonedx --scanners license --license-full . -o bom-raw.json
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          format: cyclonedx
+          output: bom-raw.json
+          scanners: license
+          license-full: true
 
+      - name: Clean SBOM
+        run: |
           echo "🧹 Cleaning SBOM (removing lock files and false positives)..."
           cat bom-raw.json | jq '
             .components |= map(select(
@@ -156,14 +158,14 @@ jobs:
       - name: Upload BOM to Dependency-Track
         uses: DependencyTrack/gh-upload-sbom@v3
         with:
-          serverhostname: '44.194.0.211'
-          port: '8091'
-          protocol: 'http'
+          serverhostname: "44.194.0.211"
+          port: "8091"
+          protocol: "http"
           apikey: ${{ secrets.DEPENDENCYTRACK_API_KEY }}
           projectname: ${{ github.event.repository.name }}
-          projectversion: 'main'
-          bomfilename: 'bom.json'
-          autocreate: 'true'
+          projectversion: "main"
+          bomfilename: "bom.json"
+          autocreate: "true"
 
       - name: Archive SBOM artifact
         uses: actions/upload-artifact@v4
