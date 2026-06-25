@@ -29,6 +29,7 @@ Processing.initialize()
 QgsApplication.processingRegistry().addProvider(QgsNativeAlgorithms())
 feedback = QgsProcessingFeedback()
 
+STRUCTURE_NUMBER = STRUCTURE_NUMBER
 STRUCTURE_NUMBER_2 = "8 - Structure Number_2"
 MEMORY_OUTPUT = "memory:"
 
@@ -154,8 +155,8 @@ def get_nearby_bridge_ids_from_csv(csv_file_path):
     with open(csv_file_path, mode="r") as file:
         csv_reader = csv.DictReader(file)
         for row in csv_reader:
-            if row["8 - Structure Number"] != row[STRUCTURE_NUMBER_2]:
-                nearby_bridge_ids.append(row["8 - Structure Number"])
+            if row[STRUCTURE_NUMBER] != row[STRUCTURE_NUMBER_2]:
+                nearby_bridge_ids.append(row[STRUCTURE_NUMBER])
                 nearby_bridge_ids.append(row[STRUCTURE_NUMBER_2])
     nearby_bridge_ids = list(set(nearby_bridge_ids))
 
@@ -170,7 +171,7 @@ def get_bridge_ids_from_csv(csv_file_path):
     with open(csv_file_path, mode="r") as file:
         csv_reader = csv.DictReader(file)
         for row in csv_reader:
-            bridge_id = row["8 - Structure Number"]
+            bridge_id = row[STRUCTURE_NUMBER]
             if bridge_id:
                 bridge_ids.append(bridge_id)
     return bridge_ids
@@ -190,7 +191,7 @@ def filter_nbi_layer(vector_layer, exclusion_ids):
 
     # Iterate through the features and filter them
     for feature in vector_layer.getFeatures():
-        if feature["8 - Structure Number"] not in exclusion_ids:
+        if feature[STRUCTURE_NUMBER] not in exclusion_ids:
             provider.addFeature(feature)
 
     return filtered_layer
@@ -253,7 +254,7 @@ def process_bridge(
         buffer_80,
         nbi_points_gl,
         [
-            "8 - Structure Number",
+            STRUCTURE_NUMBER,
         ],
         geometric_predicates=[0, 1],
     )
@@ -293,7 +294,7 @@ def process_layer_tag(
         buffer_30,
         nbi_points_gl,
         [
-            "8 - Structure Number",
+            STRUCTURE_NUMBER,
         ],
         geometric_predicates=[0, 1],
     )
@@ -341,11 +342,11 @@ def process_parallel_bridges(
     osm_oneway_yes_osm_bridge_join = join_by_location(
         osm_oneway_yes_osm_join,
         nbi_points_gl,
-        ["8 - Structure Number"],
+        [STRUCTURE_NUMBER],
         geometric_predicates=[0, 1],
     )
 
-    keep_fields = ["osm_id", "osm_id_2", "8 - Structure Number"]
+    keep_fields = ["osm_id", "osm_id_2", STRUCTURE_NUMBER]
     vl_to_csv_filter(osm_oneway_yes_osm_bridge_join, parallel_join_csv, keep_fields)
 
     parallel_bridge_ids = get_bridge_ids_from_csv(parallel_join_csv)
@@ -377,12 +378,12 @@ def process_nearby_bridges(nbi_points_gl, nearby_join_csv):
         buffer_30,
         nbi_points_gl,
         [
-            "8 - Structure Number",
+            STRUCTURE_NUMBER,
         ],
         geometric_predicates=[0, 1],
     )
 
-    keep_fields = ["8 - Structure Number", STRUCTURE_NUMBER_2]
+    keep_fields = [STRUCTURE_NUMBER, STRUCTURE_NUMBER_2]
     vl_to_csv_filter(nbi_30_nbi_join, nearby_join_csv, keep_fields)
 
     QgsProject.instance().removeMapLayer(buffer_30.id())
@@ -463,7 +464,7 @@ def process_culverts_from_pbf(
         buffer_30,
         nbi_points_gl,
         [
-            "8 - Structure Number",
+            STRUCTURE_NUMBER,
         ],
         geometric_predicates=[0],
     )
@@ -558,7 +559,7 @@ def process_buffer_join(
     )
 
     keep_fields = [
-        "8 - Structure Number",
+        STRUCTURE_NUMBER,
         "permanent_identifier",
     ]
 
@@ -576,7 +577,7 @@ def process_buffer_join(
 
     keep_fields = [
         "1 - State Code",
-        "8 - Structure Number",
+        STRUCTURE_NUMBER,
         "16 - Latitude (decimal)",
         "17 - Longitude (decimal)",
         "osm_id",

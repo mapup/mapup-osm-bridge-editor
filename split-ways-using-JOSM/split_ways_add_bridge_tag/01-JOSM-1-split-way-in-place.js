@@ -73,8 +73,7 @@ function findClosestWay(lat, lon) {
     }
   }
 
-  if (closestWay) {
-  } else {
+  if (!closestWay) {
     console.println(`No way found within 5 meters of lat: ${lat}, lon: ${lon}`);
   }
 

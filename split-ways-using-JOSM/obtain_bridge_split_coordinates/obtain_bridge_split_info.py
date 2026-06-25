@@ -175,7 +175,7 @@ def _transform_result_points(forward_point_utm, backward_point_utm, inverse_proj
 
 def _build_result_dict(osm_id, bridge_id, bridge_length, input_coordinate, nearest_point_utm,
                        forward_point, backward_point, forward_way_id, forward_visited,
-                       backward_way_id, backward_visited, point_utm, forward_point_utm, backward_point_utm):
+                       backward_way_id, backward_visited, actual_forward_distance, actual_backward_distance):
     return {
         "original_osm_id": osm_id,
         "bridge_id": bridge_id,
@@ -189,8 +189,8 @@ def _build_result_dict(osm_id, bridge_id, bridge_length, input_coordinate, neare
         "forward_visited": forward_visited if forward_visited is not None else "None",
         "backward_way_id": backward_way_id if backward_way_id is not None else -1,
         "backward_visited": backward_visited if backward_visited is not None else "None",
-        "actual_forward_distance": point_utm.distance(forward_point_utm),
-        "actual_backward_distance": point_utm.distance(backward_point_utm),
+        "actual_forward_distance": actual_forward_distance,
+        "actual_backward_distance": actual_backward_distance,
     }
 
 def process_single_bridge(bridge, lines_utm_with_ids, project, inverse_project):
@@ -224,10 +224,12 @@ def process_single_bridge(bridge, lines_utm_with_ids, project, inverse_project):
                     forward_point_utm, backward_point_utm, inverse_project
                 )
 
+                actual_forward_distance = point_utm.distance(forward_point_utm)
+                actual_backward_distance = point_utm.distance(backward_point_utm)
                 result = _build_result_dict(
                     osm_id, bridge_id, bridge_length, input_coordinate, nearest_point_utm,
                     forward_point, backward_point, forward_way_id, forward_visited,
-                    backward_way_id, backward_visited, point_utm, forward_point_utm, backward_point_utm
+                    backward_way_id, backward_visited, actual_forward_distance, actual_backward_distance
                 )
 
                 # Write the result immediately to the CSV file
