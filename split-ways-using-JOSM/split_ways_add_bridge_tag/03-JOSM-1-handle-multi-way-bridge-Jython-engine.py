@@ -25,162 +25,172 @@ coordinatesList = [
     }
 ]
 
-def tagWayAsBridge(way, bridgeId):
-    addTagCommand = ChangePropertyCommand(way, BRIDGE_TAG, BRIDGE_VALUE)
-    UndoRedoHandler.getInstance().add(addTagCommand)
-    addBridgeIdCommand = ChangePropertyCommand(way, BRIDGE_ID_TAG, bridgeId)
-    UndoRedoHandler.getInstance().add(addBridgeIdCommand)
+def tag_way_as_bridge(way, bridge_id):
+    add_tag_command = ChangePropertyCommand(way, BRIDGE_TAG, BRIDGE_VALUE)
+    UndoRedoHandler.getInstance().add(add_tag_command)
+    add_bridge_id_command = ChangePropertyCommand(way, BRIDGE_ID_TAG, bridge_id)
+    UndoRedoHandler.getInstance().add(add_bridge_id_command)
     print("Way %d tagged successfully." % way.getId())
 
-def getDataSet():
+def get_data_set():
     return MainApplication.getLayerManager().getEditDataSet()
 
-def addNodeToWay(way, latLon, isFirstPoint, preExistingNode, bridgeId):
-    dataSet = getDataSet()
+def _tag_bridge_way_after_split(data_set, is_first_point, closest_node, pre_existing_node, bridge_id):
+    selected_ways = data_set.getSelectedWays()
+    for selected_way in selected_ways:
+        selected_way_nodes = selected_way.getNodes()
+        is_bridge_way = False
+
+        if is_first_point:
+            is_bridge_way = (selected_way_nodes[0] == closest_node and selected_way_nodes[-1] == pre_existing_node) or \
+                            (selected_way_nodes[-1] == closest_node and selected_way_nodes[0] == pre_existing_node)
+        else:
+            is_bridge_way = (selected_way_nodes[0] == pre_existing_node and selected_way_nodes[-1] == closest_node) or \
+                            (selected_way_nodes[-1] == pre_existing_node and selected_way_nodes[0] == closest_node)
+
+        if is_bridge_way:
+            tag_way_as_bridge(selected_way, bridge_id)
+            break
+
+def add_node_to_way(way, lat_lon, is_first_point, pre_existing_node, bridge_id):
+    data_set = get_data_set()
     projection = ProjectionRegistry.getProjection()
-    wayNodes = way.getNodes()
-    closestIndex = -1
-    closestDistance = float('inf')
-    closestLatLon = latLon
+    way_nodes = way.getNodes()
+    closest_index = -1
+    closest_distance = float('inf')
+    closest_lat_lon = lat_lon
 
-    for i in range(len(wayNodes) - 1):
-        segmentStart = projection.latlon2eastNorth(wayNodes[i].getCoor())
-        segmentEnd = projection.latlon2eastNorth(wayNodes[i + 1].getCoor())
+    for i in range(len(way_nodes) - 1):
+        segment_start = projection.latlon2eastNorth(way_nodes[i].getCoor())
+        segment_end = projection.latlon2eastNorth(way_nodes[i + 1].getCoor())
         point = Geometry.closestPointToSegment(
-            segmentStart,
-            segmentEnd,
-            projection.latlon2eastNorth(latLon)
+            segment_start,
+            segment_end,
+            projection.latlon2eastNorth(lat_lon)
         )
-        pointLatLon = projection.eastNorth2latlon(point)
-        distance = latLon.greatCircleDistance(pointLatLon)
-        if distance < closestDistance:
-            closestDistance = distance
-            closestIndex = i
-            closestLatLon = pointLatLon
+        point_lat_lon = projection.eastNorth2latlon(point)
+        distance = lat_lon.greatCircleDistance(point_lat_lon)
+        if distance < closest_distance:
+            closest_distance = distance
+            closest_index = i
+            closest_lat_lon = point_lat_lon
 
-    if closestIndex != -1:
-        closestNode = Node(closestLatLon)
-        newWayNodes = java.util.ArrayList(wayNodes)
-        newWayNodes.add(closestIndex + 1, closestNode)
-
-        newWay = Way(way)
-        newWay.setNodes(newWayNodes)
-
-        UndoRedoHandler.getInstance().add(AddCommand(dataSet, closestNode))
-        UndoRedoHandler.getInstance().add(ChangeCommand(way, newWay))
-
-        dataSet.setSelected(closestNode)
-        SplitWayAction.runOn(dataSet)
-
-        print("Node added at latitude: %f, longitude: %f and Node ID: %d" % (latLon.lat(), latLon.lon(), closestNode.getId()))
-
-        # Tag the appropriate way as a bridge
-        selectedWays = dataSet.getSelectedWays()
-        for selectedWay in selectedWays:
-            selectedWayNodes = selectedWay.getNodes()
-            isBridgeWay = False
-
-            if isFirstPoint:
-                isBridgeWay = (selectedWayNodes[0] == closestNode and selectedWayNodes[-1] == preExistingNode) or (selectedWayNodes[-1] == closestNode and selectedWayNodes[0] == preExistingNode)
-            else:
-                isBridgeWay = (selectedWayNodes[0] == preExistingNode and selectedWayNodes[-1] == closestNode) or (selectedWayNodes[-1] == preExistingNode and selectedWayNodes[0] == closestNode)
-
-            if isBridgeWay:
-                tagWayAsBridge(selectedWay, bridgeId)
-                break
-
-        return closestNode
-    else:
+    if closest_index == -1:
         print("Failed to find a suitable segment to insert the node.")
         return None
 
-def tagAdditionalBridgeWays(additionalBridgeWayIds, bridgeId):
-    dataSet = getDataSet()
-    for wayId in additionalBridgeWayIds:
-        way = dataSet.getPrimitiveById(wayId, OsmPrimitiveType.WAY)
-        if way:
-            tagWayAsBridge(way, bridgeId)
-        else:
-            print("Additional bridge way %d not found." % wayId)
+    closest_node = Node(closest_lat_lon)
+    new_way_nodes = java.util.ArrayList(way_nodes)
+    new_way_nodes.add(closest_index + 1, closest_node)
 
-def processCoordinateSet(coordinateSet):
-    dataSet = getDataSet()
-    if not dataSet:
+    new_way = Way(way)
+    new_way.setNodes(new_way_nodes)
+
+    UndoRedoHandler.getInstance().add(AddCommand(data_set, closest_node))
+    UndoRedoHandler.getInstance().add(ChangeCommand(way, new_way))
+
+    data_set.setSelected(closest_node)
+    SplitWayAction.runOn(data_set)
+
+    print("Node added at latitude: %f, longitude: %f and Node ID: %d" % (lat_lon.lat(), lat_lon.lon(), closest_node.getId()))
+
+    _tag_bridge_way_after_split(data_set, is_first_point, closest_node, pre_existing_node, bridge_id)
+
+    return closest_node
+
+def tag_additional_bridge_ways(additional_bridge_way_ids, bridge_id):
+    data_set = get_data_set()
+    for way_id in additional_bridge_way_ids:
+        way = data_set.getPrimitiveById(way_id, OsmPrimitiveType.WAY)
+        if way:
+            tag_way_as_bridge(way, bridge_id)
+        else:
+            print("Additional bridge way %d not found." % way_id)
+
+def _process_no_additional_ways(current_way, next_way, current_point, next_point, bridge_id):
+    current_way_nodes = current_way.getNodes()
+    next_way_nodes = next_way.getNodes()
+
+    common_node = None
+    if current_way_nodes[0] == next_way_nodes[0] or current_way_nodes[0] == next_way_nodes[-1]:
+        common_node = current_way_nodes[0]
+    elif current_way_nodes[-1] == next_way_nodes[0] or current_way_nodes[-1] == next_way_nodes[-1]:
+        common_node = current_way_nodes[-1]
+
+    if current_point["latitude"] == -1 and current_point["longitude"] == -1:
+        tag_additional_bridge_ways([current_way], bridge_id)
+    else:
+        add_node_to_way(current_way, LatLon(current_point["latitude"], current_point["longitude"]), True, common_node, bridge_id)
+
+    if next_point["latitude"] == -1 and next_point["longitude"] == -1:
+        tag_additional_bridge_ways([next_way], bridge_id)
+    else:
+        add_node_to_way(next_way, LatLon(next_point["latitude"], next_point["longitude"]), False, common_node, bridge_id)
+
+def _process_with_additional_ways(current_way, next_way, current_point, next_point, bridge_id, additional_bridge_way_ids, data_set):
+    current_way_nodes = current_way.getNodes()
+    additional_bridge_way = data_set.getPrimitiveById(additional_bridge_way_ids[0], OsmPrimitiveType.WAY)
+    additional_bridge_way_nodes = additional_bridge_way.getNodes()
+
+    common_node = None
+    if current_way_nodes[0] == additional_bridge_way_nodes[0] or current_way_nodes[0] == additional_bridge_way_nodes[-1]:
+        common_node = current_way_nodes[0]
+    elif current_way_nodes[-1] == additional_bridge_way_nodes[0] or current_way_nodes[-1] == additional_bridge_way_nodes[-1]:
+        common_node = current_way_nodes[-1]
+
+    if current_point["latitude"] == -1 and current_point["longitude"] == -1:
+        add_tag_command = ChangePropertyCommand(current_way, BRIDGE_TAG, BRIDGE_VALUE)
+        UndoRedoHandler.getInstance().add(add_tag_command)
+    else:
+        add_node_to_way(current_way, LatLon(current_point["latitude"], current_point["longitude"]), True, common_node, bridge_id)
+
+    next_way_nodes = next_way.getNodes()
+    additional_bridge_way = data_set.getPrimitiveById(additional_bridge_way_ids[-1], OsmPrimitiveType.WAY)
+    additional_bridge_way_nodes = additional_bridge_way.getNodes()
+
+    common_node = None
+    if next_way_nodes[0] == additional_bridge_way_nodes[0] or next_way_nodes[0] == additional_bridge_way_nodes[-1]:
+        common_node = next_way_nodes[0]
+    elif next_way_nodes[-1] == additional_bridge_way_nodes[0] or next_way_nodes[-1] == additional_bridge_way_nodes[-1]:
+        common_node = next_way_nodes[-1]
+
+    if current_point["latitude"] == -1 and current_point["longitude"] == -1:
+        add_tag_command = ChangePropertyCommand(next_way, BRIDGE_TAG, BRIDGE_VALUE)
+        UndoRedoHandler.getInstance().add(add_tag_command)
+    else:
+        add_node_to_way(next_way, LatLon(next_point["latitude"], next_point["longitude"]), False, common_node, bridge_id)
+
+def process_coordinate_set(coordinate_set):
+    data_set = get_data_set()
+    if not data_set:
         print("No active data set found.")
         return
 
-    points = coordinateSet["points"]
-    additionalBridgeWayIds = coordinateSet["additionalBridgeWayIds"]
+    points = coordinate_set["points"]
+    additional_bridge_way_ids = coordinate_set["additionalBridgeWayIds"]
+    bridge_id = coordinate_set["bridgeId"]
 
-    bridgeId = coordinateSet["bridgeId"]
-    currentPoint = points[0]
-    nextPoint = points[0 + 1]
+    current_point = points[0]
+    next_point = points[1]
 
-    currentWay = dataSet.getPrimitiveById(currentPoint["wayId"], OsmPrimitiveType.WAY)
-    nextWay = dataSet.getPrimitiveById(nextPoint["wayId"], OsmPrimitiveType.WAY)
+    current_way = data_set.getPrimitiveById(current_point["wayId"], OsmPrimitiveType.WAY)
+    next_way = data_set.getPrimitiveById(next_point["wayId"], OsmPrimitiveType.WAY)
 
-    if not currentWay or not nextWay:
-        print("Way not found for point %d or %d" % (0, 0 + 1))
+    if not current_way or not next_way:
+        print("Way not found for point %d or %d" % (0, 1))
 
-    if len(additionalBridgeWayIds)== 0:
-        # Find common node between the two ways
-        commonNode = None
-        currentWayNodes = currentWay.getNodes()
-        nextWayNodes = nextWay.getNodes()
-
-        if currentWayNodes[0] == nextWayNodes[0] or currentWayNodes[0] == nextWayNodes[-1]:
-            commonNode = currentWayNodes[0]
-        elif currentWayNodes[-1] == nextWayNodes[0] or currentWayNodes[-1] == nextWayNodes[-1]:
-            commonNode = currentWayNodes[-1]
-
-        if currentPoint["latitude"] == -1 and currentPoint["longitude"] == -1:
-            tagAdditionalBridgeWays(currentWay, bridgeId)
-        else:
-            addNodeToWay(currentWay, LatLon(currentPoint["latitude"], currentPoint["longitude"]), True, commonNode, bridgeId)
-        if currentPoint["latitude"] == -1 and currentPoint["longitude"] == -1:
-            tagAdditionalBridgeWays(nextWay, bridgeId)
-        else:    
-            addNodeToWay(nextWay, LatLon(nextPoint["latitude"], nextPoint["longitude"]), False, commonNode, bridgeId)
+    if len(additional_bridge_way_ids) == 0:
+        _process_no_additional_ways(current_way, next_way, current_point, next_point, bridge_id)
     else:
-        # Find common node for current way and additional bridge way
-        commonNode = None
-        currentWayNodes = currentWay.getNodes()
-        additionalBridgeWay = dataSet.getPrimitiveById(additionalBridgeWayIds[0], OsmPrimitiveType.WAY)
-        additionalBridgeWayNodes = additionalBridgeWay.getNodes()
+        _process_with_additional_ways(current_way, next_way, current_point, next_point, bridge_id, additional_bridge_way_ids, data_set)
 
-        if currentWayNodes[0] == additionalBridgeWayNodes[0] or currentWayNodes[0] == additionalBridgeWayNodes[-1]:
-            commonNode = currentWayNodes[0]
-        elif currentWayNodes[-1] == additionalBridgeWayNodes[0] or currentWayNodes[-1] == additionalBridgeWayNodes[-1]:
-            commonNode = currentWayNodes[-1]
-        if currentPoint["latitude"] == -1 and currentPoint["longitude"] == -1:
-            addTagCommand = ChangePropertyCommand(currentWay, BRIDGE_TAG, BRIDGE_VALUE)
-            UndoRedoHandler.getInstance().add(addTagCommand)
-        else:
-            addNodeToWay(currentWay, LatLon(currentPoint["latitude"], currentPoint["longitude"]), True, commonNode)
-
-        # Find common node for next way and additional bridge way
-        commonNode = None
-        nextWayNodes = nextWay.getNodes()
-        additionalBridgeWay = dataSet.getPrimitiveById(additionalBridgeWayIds[-1], OsmPrimitiveType.WAY)
-        additionalBridgeWayNodes = additionalBridgeWay.getNodes()
-
-        if nextWayNodes[0] == additionalBridgeWayNodes[0] or nextWayNodes[0] == additionalBridgeWayNodes[-1]:
-            commonNode = nextWayNodes[0]
-        elif nextWayNodes[-1] == additionalBridgeWayNodes[0] or nextWayNodes[-1] == additionalBridgeWayNodes[-1]:
-            commonNode = nextWayNodes[-1]
-        if currentPoint["latitude"] == -1 and currentPoint["longitude"] == -1:
-            addTagCommand = ChangePropertyCommand(nextWay, BRIDGE_TAG, BRIDGE_VALUE)
-            UndoRedoHandler.getInstance().add(addTagCommand)
-        else:
-            addNodeToWay(nextWay, LatLon(nextPoint["latitude"], nextPoint["longitude"]), False, commonNode, bridgeId)
-
-    tagAdditionalBridgeWays(additionalBridgeWayIds, bridgeId)
+    tag_additional_bridge_ways(additional_bridge_way_ids, bridge_id)
 
     MainApplication.getMap().mapView.repaint()
 
 # Main execution
 try:
-    for coordinateSet in coordinatesList:
-        processCoordinateSet(coordinateSet)
+    for coordinate_set in coordinatesList:
+        process_coordinate_set(coordinate_set)
 except Exception as error:
     print("An error occurred: %s" % str(error))

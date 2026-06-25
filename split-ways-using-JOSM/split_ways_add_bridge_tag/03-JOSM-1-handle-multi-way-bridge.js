@@ -69,47 +69,47 @@ function addNodeToWay(way, latLon, isFirstPoint, preExistingNode, bridgeId) {
     }
   }
 
-  if (closestIndex !== -1) {
-    const closestNode = new Node(closestLatLon);
-    const newWayNodes = new java.util.ArrayList(wayNodes);
-    newWayNodes.add(closestIndex + 1, closestNode);
-
-    const newWay = new Way(way);
-    newWay.setNodes(newWayNodes);
-
-    UndoRedoHandler.getInstance().add(new AddCommand(dataSet, closestNode));
-    UndoRedoHandler.getInstance().add(new ChangeCommand(way, newWay));
-
-    dataSet.setSelected(closestNode);
-    SplitWayAction.runOn(dataSet);
-
-    console.println(`Node added at latitude: ${latLon.lat()}, longitude: ${latLon.lon()} and Node ID: ${closestNode.getId()}`);
-
-    // Tag the appropriate way as a bridge
-    const selectedWays = dataSet.getSelectedWays();
-    for (const selectedWay of selectedWays) {
-      const selectedWayNodes = selectedWay.getNodes();
-      let isBridgeWay = false;
-
-      if (isFirstPoint) {
-        isBridgeWay = (selectedWayNodes.get(0) === closestNode && selectedWayNodes.get(selectedWayNodes.size() - 1) === preExistingNode) ||
-          (selectedWayNodes.get(selectedWayNodes.size() - 1) === closestNode && selectedWayNodes.get(0) === preExistingNode);
-      } else {
-        isBridgeWay = (selectedWayNodes.get(0) === preExistingNode && selectedWayNodes.get(selectedWayNodes.size() - 1) === closestNode) ||
-          (selectedWayNodes.get(selectedWayNodes.size() - 1) === preExistingNode && selectedWayNodes.get(0) === closestNode);
-      }
-
-      if (isBridgeWay) {
-        tagWays(selectedWay, bridgeId);
-        break;
-      }
-    }
-
-    return closestNode;
-  } else {
+  if (closestIndex === -1) {
     console.println("Failed to find a suitable segment to insert the node.");
     return null;
   }
+
+  const closestNode = new Node(closestLatLon);
+  const newWayNodes = new java.util.ArrayList(wayNodes);
+  newWayNodes.add(closestIndex + 1, closestNode);
+
+  const newWay = new Way(way);
+  newWay.setNodes(newWayNodes);
+
+  UndoRedoHandler.getInstance().add(new AddCommand(dataSet, closestNode));
+  UndoRedoHandler.getInstance().add(new ChangeCommand(way, newWay));
+
+  dataSet.setSelected(closestNode);
+  SplitWayAction.runOn(dataSet);
+
+  console.println(`Node added at latitude: ${latLon.lat()}, longitude: ${latLon.lon()} and Node ID: ${closestNode.getId()}`);
+
+  // Tag the appropriate way as a bridge
+  const selectedWays = dataSet.getSelectedWays();
+  for (const selectedWay of selectedWays) {
+    const selectedWayNodes = selectedWay.getNodes();
+    let isBridgeWay = false;
+
+    if (isFirstPoint) {
+      isBridgeWay = (selectedWayNodes.get(0) === closestNode && selectedWayNodes.get(selectedWayNodes.size() - 1) === preExistingNode) ||
+        (selectedWayNodes.get(selectedWayNodes.size() - 1) === closestNode && selectedWayNodes.get(0) === preExistingNode);
+    } else {
+      isBridgeWay = (selectedWayNodes.get(0) === preExistingNode && selectedWayNodes.get(selectedWayNodes.size() - 1) === closestNode) ||
+        (selectedWayNodes.get(selectedWayNodes.size() - 1) === preExistingNode && selectedWayNodes.get(0) === closestNode);
+    }
+
+    if (isBridgeWay) {
+      tagWays(selectedWay, bridgeId);
+      break;
+    }
+  }
+
+  return closestNode;
 }
 
 function tagAdditionalBridgeWays(additionalBridgeWayIds) {

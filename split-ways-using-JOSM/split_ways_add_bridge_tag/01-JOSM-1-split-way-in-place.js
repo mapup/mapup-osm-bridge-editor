@@ -74,7 +74,6 @@ function findClosestWay(lat, lon) {
   }
 
   if (closestWay) {
-    // console.println(`Found closest way: ${closestWay.getId()} at distance: ${minDistance} meters`);
   } else {
     console.println(`No way found within 5 meters of lat: ${lat}, lon: ${lon}`);
   }
@@ -130,24 +129,29 @@ function addNodeToWay(way, latLon, isFirstPoint, preExistingNodeId) {
     }
   }
 
-  if (closestIndex !== -1) {
-    const closestNode = new Node(closestLatLon);
-    const newWayNodes = new java.util.ArrayList(wayNodes);
-    newWayNodes.add(closestIndex + 1, closestNode);
-
-    const newWay = new Way(way);
-    newWay.setNodes(newWayNodes);
-
-    UndoRedoHandler.getInstance().add(new AddCommand(dataSet, closestNode));
-    UndoRedoHandler.getInstance().add(new ChangeCommand(way, newWay));
-
-    console.println(`Node added at latitude: ${latLon.lat()}, longitude: ${latLon.lon()} and Node ID: ${closestNode.getId()}`);
-
-    return closestNode;
-  } else {
+  if (closestIndex === -1) {
     console.println("Failed to find a suitable segment to insert the node.");
     return null;
   }
+
+  const closestNode = new Node(closestLatLon);
+  const newWayNodes = new java.util.ArrayList(wayNodes);
+  newWayNodes.add(closestIndex + 1, closestNode);
+
+  const newWay = new Way(way);
+  newWay.setNodes(newWayNodes);
+
+  UndoRedoHandler.getInstance().add(new AddCommand(dataSet, closestNode));
+  UndoRedoHandler.getInstance().add(new ChangeCommand(way, newWay));
+
+  console.println(`Node added at latitude: ${latLon.lat()}, longitude: ${latLon.lon()} and Node ID: ${closestNode.getId()}`);
+
+  return closestNode;
+}
+
+function isNodeAtEndpoints(wayNodes, startNode, endNode) {
+  return (wayNodes[0] === startNode && wayNodes[wayNodes.length - 1] === endNode) ||
+    (wayNodes[0] === endNode && wayNodes[wayNodes.length - 1] === startNode);
 }
 
 function tagBridgeWay(startNode, endNode, bridgeId) {
@@ -169,46 +173,37 @@ function tagBridgeWay(startNode, endNode, bridgeId) {
   }
   const selectedWays = dataSet.getSelectedWays();
   for (const way of selectedWays) {
+    const wayNodes = way.getNodes();
+    let matched = false;
     if (startNode && endNode) {
-      const wayNodes = way.getNodes();
-      const wayNodeIds = wayNodes.map(node => node.getId());
-
-      if ((wayNodes[0] === startNode && wayNodes[wayNodes.length - 1] === endNode) || (wayNodes[0] === endNode && wayNodes[wayNodes.length - 1] === startNode)) {
-        const addTagCommand = new ChangePropertyCommand(way, BRIDGE_TAG, BRIDGE_VALUE);
-        UndoRedoHandler.getInstance().add(addTagCommand);
-        const addBridgeIdCommand = new ChangePropertyCommand(way, "bridge:id", bridgeId);
-        UndoRedoHandler.getInstance().add(addBridgeIdCommand);
-        console.println(`Bridge way ${way.getId()} tagged successfully.`);
-        return;
-      }
-    } else {
-      if (endNode) {
-        const wayNodes = way.getNodes();
-        const wayNodeIds = wayNodes.map(node => node.getId());
-        if (wayNodes[wayNodes.length - 1] === endNode) {
-          const addTagCommand = new ChangePropertyCommand(way, BRIDGE_TAG, BRIDGE_VALUE);
-          UndoRedoHandler.getInstance().add(addTagCommand);
-          const addBridgeIdCommand = new ChangePropertyCommand(way, "bridge:id", bridgeId);
-          UndoRedoHandler.getInstance().add(addBridgeIdCommand);
-          console.println(`Bridge way ${way.getId()} tagged successfully.`);
-          return;
-        }
-      }
-      else if (startNode) {
-        const wayNodes = way.getNodes();
-        const wayNodeIds = wayNodes.map(node => node.getId());
-        if (wayNodes[0] === startNode) {
-          const addTagCommand = new ChangePropertyCommand(way, BRIDGE_TAG, BRIDGE_VALUE);
-          UndoRedoHandler.getInstance().add(addTagCommand);
-          const addBridgeIdCommand = new ChangePropertyCommand(way, "bridge:id", bridgeId);
-          UndoRedoHandler.getInstance().add(addBridgeIdCommand);
-          console.println(`Bridge way ${way.getId()} tagged successfully.`);
-          return;
-        }
-      }
+      matched = isNodeAtEndpoints(wayNodes, startNode, endNode);
+    } else if (endNode) {
+      matched = wayNodes[wayNodes.length - 1] === endNode;
+    } else if (startNode) {
+      matched = wayNodes[0] === startNode;
+    }
+    if (matched) {
+      const addTagCommand = new ChangePropertyCommand(way, BRIDGE_TAG, BRIDGE_VALUE);
+      UndoRedoHandler.getInstance().add(addTagCommand);
+      const addBridgeIdCommand = new ChangePropertyCommand(way, "bridge:id", bridgeId);
+      UndoRedoHandler.getInstance().add(addBridgeIdCommand);
+      console.println(`Bridge way ${way.getId()} tagged successfully.`);
+      return;
     }
   }
   console.println("Could not identify a unique way among the selected ones connecting the specified nodes as a bridge.");
+}
+
+function handlePoint(point, i, points, way, wayId, addNodeToWayFn, LatLonType) {
+  const closestWayId = way.getId();
+  if (closestWayId !== wayId && closestWayId >= 0 && way.hasTag("bridge:id")) {
+    return { skip: true };
+  }
+  if (point.latitude == -1 && point.longitude == -1) {
+    return { skip: true };
+  }
+  const node = addNodeToWayFn(way, new LatLonType(point.latitude, point.longitude));
+  return { skip: false, node, isFirst: i === 0, isLast: i === points.length - 1 };
 }
 
 function processCoordinateSet(coordinateSet) {
@@ -224,26 +219,16 @@ function processCoordinateSet(coordinateSet) {
 
   for (let i = 0; i < points.length; i++) {
     const point = points[i];
-    // const way = dataSet.getPrimitiveById(point.wayId, OsmPrimitiveType.WAY);
     const way = findClosestWay(point.latitude, point.longitude);
-    const closestWayId = way.getId();
 
     if (!way) {
       console.println(`Way not found for point ${i}`);
       return;
     }
-    if (closestWayId !== wayId && closestWayId >= 0 && way.hasTag("bridge:id")) {
-      continue
-    }
-    if (point.latitude == -1 && point.longitude == -1) {
-      continue;
-    }
-    else {
-      const node = addNodeToWay(way, new LatLon(point.latitude, point.longitude));
-      if (i === 0) endNode = node;
-      if (i === points.length - 1) startNode = node;
-    }
-
+    const result = handlePoint(point, i, points, way, wayId, addNodeToWay, LatLon);
+    if (result.skip) continue;
+    if (result.isFirst) endNode = result.node;
+    if (result.isLast) startNode = result.node;
   }
 
   if (startNode || endNode) {
