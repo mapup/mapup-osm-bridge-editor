@@ -187,6 +187,7 @@ def main():
             left_on="8 - Structure Number",
             right_on="bridge_id",
             how="left",
+            validate="many_to_many",
         )
         merge_df.rename(columns={"osm_similarity": "osm_similarity_hydro"}, inplace=True)
         merge_df.rename(columns={"final_osm_id": "osm_id_hydro"}, inplace=True)

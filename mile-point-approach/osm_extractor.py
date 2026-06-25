@@ -130,7 +130,6 @@ def process_and_merge_osm_data(
     ].transform("min")
     final_df = final_df[final_df["min_distance"] == final_df["distance"]]
 
-    # point_geom = final_df.geometry_bridge.snap(final_df.geometry_osm, 10)
     point_geom = final_df.apply(
         lambda row: project_point_to_line(
             row["geometry_bridge"], row["geometry_osm"], max_snap_distance

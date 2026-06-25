@@ -4,6 +4,8 @@ import os
 from typing import List,Tuple
 import logging
 
+DONE_WITHIN_CODE = "Done within code"
+
 # Set up logging
 logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -162,8 +164,8 @@ def create_bridge_statistics(
                     # "NBI-{{state}}-bridge-data.csv"
                     os.path.split(input_csv)[1],
 
-                    "Done within code",
-                    "Done within code",
+                    DONE_WITHIN_CODE,
+                    DONE_WITHIN_CODE,
 
                     #"NBI-Filtered-Yes-Manmade-Bridges.gpkg"
                     os.path.split(yes_filter_bridges)[1],
@@ -179,8 +181,8 @@ def create_bridge_statistics(
                     #"Final-bridges-with-percentage-match.csv"
                     os.path.split(final_bridges_csv)[1],
 
-                    "Done within code",
-                    "Done within code",
+                    DONE_WITHIN_CODE,
+                    DONE_WITHIN_CODE,
                     "merged-approaches-association-output.csv",
                     "merged-approaches-association-output.csv"
                 ]

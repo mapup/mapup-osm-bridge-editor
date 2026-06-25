@@ -2,6 +2,7 @@ import csv
 import os
 import subprocess
 import sys
+from dataclasses import dataclass
 
 from qgis.analysis import QgsNativeAlgorithms
 from qgis.core import (
@@ -28,6 +29,28 @@ Processing.initialize()
 QgsApplication.processingRegistry().addProvider(QgsNativeAlgorithms())
 feedback = QgsProcessingFeedback()
 
+STRUCTURE_NUMBER = "8 - Structure Number"
+STRUCTURE_NUMBER_2 = "8 - Structure Number_2"
+MEMORY_OUTPUT = "memory:"
+
+
+@dataclass
+class TaggingPaths:
+    bridge_yes_join_csv: str
+    yes_filter_bridges: str
+    manmade_join_csv: str
+    manmade_filter_bridges: str
+    parallel_join_csv: str
+    parallel_filter_bridges: str
+    nearby_join_csv: str
+    culvert_join_csv: str
+    final_bridges: str
+    intersections_csv: str
+    osm_nhd_join_csv: str
+    nbi_10_join_csv: str
+    nbi_30_join_csv: str
+    exploded_osm_data_csv: str
+
 
 def create_buffer(vector_layer, radius):
     """
@@ -42,7 +65,7 @@ def create_buffer(vector_layer, radius):
             "INPUT": vector_layer,
             "JOIN_STYLE": 0,
             "MITER_LIMIT": 2,
-            "OUTPUT": "memory:",
+            "OUTPUT": MEMORY_OUTPUT,
             "SEGMENTS": 5,
         },
     )["OUTPUT"]
@@ -67,7 +90,7 @@ def explode_osm_data(vector_layer):
             "EXPECTED_FIELDS": "",
             "FIELD": "other_tags",
             "INPUT": vector_layer,
-            "OUTPUT": "memory:",
+            "OUTPUT": MEMORY_OUTPUT,
         },
     )["OUTPUT"]
     return exploded
@@ -85,9 +108,8 @@ def join_by_location(input_layer, join_layer, join_fields, geometric_predicates)
             "JOIN": join_layer,
             "JOIN_FIELDS": join_fields,
             "METHOD": 0,
-            "OUTPUT": "memory:",
+            "OUTPUT": MEMORY_OUTPUT,
             "PREDICATE": geometric_predicates,
-            # Predicates - [0, 1, 2, 3, 4, 5, 6] = [‘intersects’, ‘contains’, ‘equals’, ‘touches’, ‘overlaps’, ‘within’, ‘crosses’]
             "PREFIX": "",
         },
     )["OUTPUT"]
@@ -133,9 +155,9 @@ def get_nearby_bridge_ids_from_csv(csv_file_path):
     with open(csv_file_path, mode="r") as file:
         csv_reader = csv.DictReader(file)
         for row in csv_reader:
-            if row["8 - Structure Number"] != row["8 - Structure Number_2"]:
-                nearby_bridge_ids.append(row["8 - Structure Number"])
-                nearby_bridge_ids.append(row["8 - Structure Number_2"])
+            if row[STRUCTURE_NUMBER] != row[STRUCTURE_NUMBER_2]:
+                nearby_bridge_ids.append(row[STRUCTURE_NUMBER])
+                nearby_bridge_ids.append(row[STRUCTURE_NUMBER_2])
     nearby_bridge_ids = list(set(nearby_bridge_ids))
 
     return nearby_bridge_ids
@@ -149,7 +171,7 @@ def get_bridge_ids_from_csv(csv_file_path):
     with open(csv_file_path, mode="r") as file:
         csv_reader = csv.DictReader(file)
         for row in csv_reader:
-            bridge_id = row["8 - Structure Number"]
+            bridge_id = row[STRUCTURE_NUMBER]
             if bridge_id:
                 bridge_ids.append(bridge_id)
     return bridge_ids
@@ -169,7 +191,7 @@ def filter_nbi_layer(vector_layer, exclusion_ids):
 
     # Iterate through the features and filter them
     for feature in vector_layer.getFeatures():
-        if feature["8 - Structure Number"] not in exclusion_ids:
+        if feature[STRUCTURE_NUMBER] not in exclusion_ids:
             provider.addFeature(feature)
 
     return filtered_layer
@@ -193,7 +215,7 @@ def get_line_intersections(filtered_osm_gl, rivers_gl):
                 "fcode_description",
             ],
             "INTERSECT_FIELDS_PREFIX": "",
-            "OUTPUT": "memory:",
+            "OUTPUT": MEMORY_OUTPUT,
         },
     )["OUTPUT"]
     return intersections
@@ -216,31 +238,6 @@ def load_layers(nbi_points_fp, osm_fp):
     return nbi_points_gl, osm_gl
 
 
-'''
-def load_layers(nbi_points_fp, osm_fp):
-    """
-    Load required layers and create spatial indexes
-    """
-    nbi_points_gl = QgsVectorLayer(nbi_points_fp, "nbi-points", "ogr")
-    if not nbi_points_gl.isValid():
-        print("NBI points layer failed to load!")
-        sys.exit(1)
-
-    osm_gl = QgsVectorLayer(osm_fp, "filtered", "ogr")
-    if not osm_gl.isValid():
-        print("OSM ways layer failed to load!")
-        sys.exit(1)
-
-    # Create spatial index for NBI points
-    nbi_index = QgsSpatialIndex(nbi_points_gl.getFeatures())
-
-    # Create spatial index for OSM ways
-    osm_index = QgsSpatialIndex(osm_gl.getFeatures())
-
-    return nbi_points_gl, osm_gl
-'''
-
-
 def process_bridge(
     nbi_points_gl, exploded_osm_gl, bridge_yes_join_csv, yes_filter_bridges
 ):
@@ -257,7 +254,7 @@ def process_bridge(
         buffer_80,
         nbi_points_gl,
         [
-            "8 - Structure Number",
+            STRUCTURE_NUMBER,
         ],
         geometric_predicates=[0, 1],
     )
@@ -297,7 +294,7 @@ def process_layer_tag(
         buffer_30,
         nbi_points_gl,
         [
-            "8 - Structure Number",
+            STRUCTURE_NUMBER,
         ],
         geometric_predicates=[0, 1],
     )
@@ -345,11 +342,11 @@ def process_parallel_bridges(
     osm_oneway_yes_osm_bridge_join = join_by_location(
         osm_oneway_yes_osm_join,
         nbi_points_gl,
-        ["8 - Structure Number"],
+        [STRUCTURE_NUMBER],
         geometric_predicates=[0, 1],
     )
 
-    keep_fields = ["osm_id", "osm_id_2", "8 - Structure Number"]
+    keep_fields = ["osm_id", "osm_id_2", STRUCTURE_NUMBER]
     vl_to_csv_filter(osm_oneway_yes_osm_bridge_join, parallel_join_csv, keep_fields)
 
     parallel_bridge_ids = get_bridge_ids_from_csv(parallel_join_csv)
@@ -381,12 +378,12 @@ def process_nearby_bridges(nbi_points_gl, nearby_join_csv):
         buffer_30,
         nbi_points_gl,
         [
-            "8 - Structure Number",
+            STRUCTURE_NUMBER,
         ],
         geometric_predicates=[0, 1],
     )
 
-    keep_fields = ["8 - Structure Number", "8 - Structure Number_2"]
+    keep_fields = [STRUCTURE_NUMBER, STRUCTURE_NUMBER_2]
     vl_to_csv_filter(nbi_30_nbi_join, nearby_join_csv, keep_fields)
 
     QgsProject.instance().removeMapLayer(buffer_30.id())
@@ -457,7 +454,7 @@ def process_culverts_from_pbf(
 
     osm_layer = QgsVectorLayer(osm_fp, "osm-culverts", "ogr")
     if not osm_layer.isValid():
-        raise Exception(f"Failed to load layer from {culverts_gpkg_path}")
+        raise RuntimeError(f"Failed to load layer from {culverts_gpkg_path}")
 
     # Create a 30m buffer (0.0003 degrees)
     buffer_30 = create_buffer(osm_layer, 0.0003)
@@ -467,7 +464,7 @@ def process_culverts_from_pbf(
         buffer_30,
         nbi_points_gl,
         [
-            "8 - Structure Number",
+            STRUCTURE_NUMBER,
         ],
         geometric_predicates=[0],
     )
@@ -500,7 +497,6 @@ def process_buffer_join(
     osm_gl,
     exploded_osm_gl,
     rivers_data,
-    state_name,
     intersections_csv,
     osm_nhd_join_csv,
     nbi_10_join_csv,
@@ -509,8 +505,7 @@ def process_buffer_join(
     """
     Process buffer join: join NBI data with OSM and river data
     """
-    base_filename = os.path.splitext(os.path.basename(rivers_data))[0]
-    rivers_fp = rivers_data + f"|layername=NHDFlowline"
+    rivers_fp = rivers_data + "|layername=NHDFlowline"
 
     rivers_gl = QgsVectorLayer(rivers_fp, "rivers", "ogr")
     if not rivers_gl.isValid():
@@ -564,7 +559,7 @@ def process_buffer_join(
     )
 
     keep_fields = [
-        "8 - Structure Number",
+        STRUCTURE_NUMBER,
         "permanent_identifier",
     ]
 
@@ -582,7 +577,7 @@ def process_buffer_join(
 
     keep_fields = [
         "1 - State Code",
-        "8 - Structure Number",
+        STRUCTURE_NUMBER,
         "16 - Latitude (decimal)",
         "17 - Longitude (decimal)",
         "osm_id",
@@ -604,23 +599,10 @@ def process_tagging(
     nbi_geopackage,
     filtered_highways,
     state_latest_osm,
-    bridge_yes_join_csv,
-    yes_filter_bridges,
-    manmade_join_csv,
-    manmade_filter_bridges,
-    parallel_join_csv,
-    parallel_filter_bridges,
-    nearby_join_csv,
     state_folder,
     state_name,
-    culvert_join_csv,
-    final_bridges,
     rivers_data,
-    intersections_csv,
-    osm_nhd_join_csv,
-    nbi_10_join_csv,
-    nbi_30_join_csv,
-    exploded_osm_data_csv
+    paths: TaggingPaths,
 ):
     # Get QGIS pathname for NBI points vector layer
     base_filename = os.path.splitext(os.path.basename(nbi_geopackage))[0]
@@ -633,35 +615,34 @@ def process_tagging(
     exploded_osm_gl = explode_osm_data(osm_gl)
 
     #Save OSM exploded layer
-    vl_to_csv(exploded_osm_gl, exploded_osm_data_csv)
-    print(f"\nOutput file: {exploded_osm_data_csv} has been created successfully!")
+    vl_to_csv(exploded_osm_gl, paths.exploded_osm_data_csv)
+    print(f"\nOutput file: {paths.exploded_osm_data_csv} has been created successfully!")
 
     output_layer1 = process_bridge(
-        nbi_points_gl, exploded_osm_gl, bridge_yes_join_csv, yes_filter_bridges
+        nbi_points_gl, exploded_osm_gl, paths.bridge_yes_join_csv, paths.yes_filter_bridges
     )
     output_layer2 = process_layer_tag(
-        output_layer1, exploded_osm_gl, manmade_join_csv, manmade_filter_bridges
+        output_layer1, exploded_osm_gl, paths.manmade_join_csv, paths.manmade_filter_bridges
     )
     output_layer3 = process_parallel_bridges(
-        output_layer2, exploded_osm_gl, parallel_join_csv, parallel_filter_bridges
+        output_layer2, exploded_osm_gl, paths.parallel_join_csv, paths.parallel_filter_bridges
     )
-    process_nearby_bridges(output_layer3, nearby_join_csv)
+    process_nearby_bridges(output_layer3, paths.nearby_join_csv)
     output_layer4 = process_culverts_from_pbf(
         output_layer3,
         osm_pbf_path,
         state_folder,
         state_name,
-        culvert_join_csv,
-        final_bridges,
+        paths.culvert_join_csv,
+        paths.final_bridges,
     )
     process_buffer_join(
         output_layer4,
         osm_gl,
         exploded_osm_gl,
         rivers_data,
-        state_name,
-        intersections_csv,
-        osm_nhd_join_csv,
-        nbi_10_join_csv,
-        nbi_30_join_csv,
+        paths.intersections_csv,
+        paths.osm_nhd_join_csv,
+        paths.nbi_10_join_csv,
+        paths.nbi_30_join_csv,
     )

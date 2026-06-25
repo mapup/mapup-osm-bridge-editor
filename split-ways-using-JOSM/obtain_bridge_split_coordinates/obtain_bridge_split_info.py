@@ -109,6 +109,22 @@ def calculate_points_on_way(line, nearest_point, half_distance, all_lines_with_i
         logging.error(f"Error calculating points on way: {e}")
         return None, None, [], None, None, []
 
+def _find_connected_lines(current_line, all_lines_with_ids, connection_point, visited):
+    current_line_way_id = None
+    possible_next_lines = []
+    for line, way_id in all_lines_with_ids:
+        if line.equals(current_line):
+            current_line_way_id = way_id
+            continue
+        if way_id in visited:
+            continue
+        if connection_point.equals(Point(line.coords[0])):
+            possible_next_lines.append((line, way_id))
+        elif connection_point.equals(Point(line.coords[-1])):
+            inverted_line = LineString(line.coords[::-1])
+            possible_next_lines.append((inverted_line, way_id))
+    return current_line_way_id, possible_next_lines
+
 def extend_along_connected_way(
     current_line, remaining_distance, all_lines_with_ids, reverse=False, visited=None
 ):
@@ -118,19 +134,9 @@ def extend_along_connected_way(
     try:
         start_or_end = 0 if reverse else -1
         connection_point = Point(current_line.coords[start_or_end])
-        current_line_way_id = None
-        possible_next_lines = []
-        for line, way_id in all_lines_with_ids:
-            if line.equals(current_line):
-                current_line_way_id = way_id
-                continue
-            if way_id in visited:
-                continue
-            if connection_point.equals(Point(line.coords[0])):
-                possible_next_lines.append((line, way_id))
-            elif connection_point.equals(Point(line.coords[-1])):
-                inverted_line = LineString(line.coords[::-1])
-                possible_next_lines.append((inverted_line, way_id))
+        current_line_way_id, possible_next_lines = _find_connected_lines(
+            current_line, all_lines_with_ids, connection_point, visited
+        )
 
         if len(possible_next_lines) > 1:
             logging.warning(f"Split detected at point {current_line_way_id}. Stopping.")
@@ -158,6 +164,35 @@ def extend_along_connected_way(
         logging.error(f"Error extending along connected way: {e}")
         return None, None, visited
 
+def _transform_result_points(forward_point_utm, backward_point_utm, inverse_project):
+    forward_point = Point(-1, -1)
+    backward_point = Point(-1, -1)
+    if forward_point_utm is not None:
+        forward_point = transform(inverse_project, forward_point_utm)
+    if backward_point_utm is not None:
+        backward_point = transform(inverse_project, backward_point_utm)
+    return forward_point, backward_point
+
+def _build_result_dict(osm_id, bridge_id, bridge_length, input_coordinate, nearest_point_utm,
+                       forward_point, backward_point, forward_way_id, forward_visited,
+                       backward_way_id, backward_visited, actual_forward_distance, actual_backward_distance):
+    return {
+        "original_osm_id": osm_id,
+        "bridge_id": bridge_id,
+        "bridge_length": bridge_length,
+        "bridge_coordinate": input_coordinate,
+        "input_coordinate": input_coordinate,
+        "nearest_point": (nearest_point_utm.x, nearest_point_utm.y),
+        "forward_point": (forward_point.x, forward_point.y),
+        "backward_point": (backward_point.x, backward_point.y),
+        "forward_way_id": forward_way_id if forward_way_id is not None else -1,
+        "forward_visited": forward_visited if forward_visited is not None else "None",
+        "backward_way_id": backward_way_id if backward_way_id is not None else -1,
+        "backward_visited": backward_visited if backward_visited is not None else "None",
+        "actual_forward_distance": actual_forward_distance,
+        "actual_backward_distance": actual_backward_distance,
+    }
+
 def process_single_bridge(bridge, lines_utm_with_ids, project, inverse_project):
     try:
         logging.info(f"Processing bridge {bridge['index']}/6599")
@@ -184,31 +219,18 @@ def process_single_bridge(bridge, lines_utm_with_ids, project, inverse_project):
                 ) = calculate_points_on_way(
                     line_utm, nearest_point_utm, half_distance, lines_utm_with_ids
                 )
-                
-                # Initialize forward and backward points
-                forward_point = Point(-1, -1)
-                backward_point = Point(-1, -1)
-                if forward_point_utm is not None:
-                    forward_point = transform(inverse_project, forward_point_utm)
-                if backward_point_utm is not None:
-                    backward_point = transform(inverse_project, backward_point_utm)
 
-                result = {
-                    "original_osm_id": osm_id,
-                    "bridge_id": bridge_id,
-                    "bridge_length": bridge_length,
-                    "bridge_coordinate": input_coordinate,
-                    "input_coordinate": input_coordinate,
-                    "nearest_point": (nearest_point_utm.x, nearest_point_utm.y),
-                    "forward_point": (forward_point.x, forward_point.y),
-                    "backward_point": (backward_point.x, backward_point.y),
-                    "forward_way_id": forward_way_id if forward_way_id is not None else -1,
-                    "forward_visited": forward_visited if forward_visited is not None else "None",
-                    "backward_way_id": backward_way_id if backward_way_id is not None else -1,
-                    "backward_visited": backward_visited if backward_visited is not None else "None",
-                    "actual_forward_distance": point_utm.distance(forward_point_utm),
-                    "actual_backward_distance": point_utm.distance(backward_point_utm),
-                }
+                forward_point, backward_point = _transform_result_points(
+                    forward_point_utm, backward_point_utm, inverse_project
+                )
+
+                actual_forward_distance = point_utm.distance(forward_point_utm)
+                actual_backward_distance = point_utm.distance(backward_point_utm)
+                result = _build_result_dict(
+                    osm_id, bridge_id, bridge_length, input_coordinate, nearest_point_utm,
+                    forward_point, backward_point, forward_way_id, forward_visited,
+                    backward_way_id, backward_visited, actual_forward_distance, actual_backward_distance
+                )
 
                 # Write the result immediately to the CSV file
                 with open("bridge-osm-association-with-split-coords.csv", "a", encoding="utf-8-sig") as rf:

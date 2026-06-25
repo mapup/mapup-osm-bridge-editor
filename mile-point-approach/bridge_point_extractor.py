@@ -80,13 +80,13 @@ def filter_left_right_bridges(joined_df):
     Returns:
         GeoDataFrame: Filtered DataFrame without left-right bridges.
     """
-    bridges_containing_LR = joined_df[
+    bridges_containing_lr = joined_df[
         joined_df["bridge_id"].str.contains("L")
         | joined_df["bridge_id"].str.contains("R")
     ]
 
-    merged_bridges = bridges_containing_LR.merge(
-        bridges_containing_LR, on="bridge_id", how="inner"
+    merged_bridges = bridges_containing_lr.merge(
+        bridges_containing_lr, on="bridge_id", how="inner"
     )
     merged_bridges["has_left_lane"] = (
         merged_bridges["lrs_id_y"].str.replace(r"-10$", "", regex=True)
@@ -209,7 +209,6 @@ def interpolate_point_geography(line, distance_miles):
     )
     if distance_miles > total_length:
         return pd.NA, pd.NA
-        raise ValueError("Distance exceeds the total length of the line")
 
     current_distance = 0
     for i in range(len(coord_list) - 1):
