@@ -1,6 +1,10 @@
 import geopandas as gpd
 import pandas as pd
 
+STRUCTURE_NUMBER = "8 - Structure Number"
+FEATURES_INTERSECTED = "6A - Features Intersected"
+FACILITY_CARRIED = "7 - Facility Carried By Structure"
+
 
 def project_point_on_line(point, line):
     # Calculate the projected point on the line
@@ -27,17 +31,17 @@ def run(final_bridges, filtered_highways, bridge_association_lengths, bridge_wit
     osm_ways_gdf = osm_ways_gdf.to_crs(epsg=4326)
 
     # Trim whitespace from 8 - Structure Number in associations_df and bridge_points_gdf
-    associations_df["8 - Structure Number"] = associations_df[
-        "8 - Structure Number"
+    associations_df[STRUCTURE_NUMBER] = associations_df[
+        STRUCTURE_NUMBER
     ].str.strip()
-    bridge_points_gdf["8 - Structure Number"] = bridge_points_gdf[
-        "8 - Structure Number"
+    bridge_points_gdf[STRUCTURE_NUMBER] = bridge_points_gdf[
+        STRUCTURE_NUMBER
     ].str.strip()
 
     projected_data = []
 
     for _, row in associations_df.iterrows():
-        structure_number = row["8 - Structure Number"]
+        structure_number = row[STRUCTURE_NUMBER]
 
         try:
             final_osm_id = str(
@@ -46,7 +50,7 @@ def run(final_bridges, filtered_highways, bridge_association_lengths, bridge_wit
 
             # Find the corresponding bridge point
             bridge_point = bridge_points_gdf.loc[
-                bridge_points_gdf["8 - Structure Number"] == structure_number
+                bridge_points_gdf[STRUCTURE_NUMBER] == structure_number
             ].geometry.values[0]
 
             # Find the corresponding OSM way
@@ -60,14 +64,14 @@ def run(final_bridges, filtered_highways, bridge_association_lengths, bridge_wit
             # Append the result to the list
             projected_data.append(
                 {
-                    "8 - Structure Number": structure_number,
+                    STRUCTURE_NUMBER: structure_number,
                     "final_osm_id": row["final_osm_id"],
                     "osm_name": row["osm_name"],
                     "final_stream_id": row["final_stream_id"],
                     "stream_name": row["stream_name"],
-                    "6A - Features Intersected": row["6A - Features Intersected"],
-                    "7 - Facility Carried By Structure": row[
-                        "7 - Facility Carried By Structure"
+                    FEATURES_INTERSECTED: row[FEATURES_INTERSECTED],
+                    FACILITY_CARRIED: row[
+                        FACILITY_CARRIED
                     ],
                     "bridge_length": round(row["bridge_length"]/3.281,2),
                     "projected_long": projected_point.x,
@@ -79,14 +83,14 @@ def run(final_bridges, filtered_highways, bridge_association_lengths, bridge_wit
             # Handle cases where final_osm_id is NaN or OSM way is not found
             projected_data.append(
                 {
-                    "8 - Structure Number": structure_number,
+                    STRUCTURE_NUMBER: structure_number,
                     "final_osm_id": row["final_osm_id"],
                     "osm_name": row["osm_name"],
                     "final_stream_id": row["final_stream_id"],
                     "stream_name": row["stream_name"],
-                    "6A - Features Intersected": row["6A - Features Intersected"],
-                    "7 - Facility Carried By Structure": row[
-                        "7 - Facility Carried By Structure"
+                    FEATURES_INTERSECTED: row[FEATURES_INTERSECTED],
+                    FACILITY_CARRIED: row[
+                        FACILITY_CARRIED
                     ],
                     "bridge_length": round(row["bridge_length"]/3.281,2),
                     "projected_long": "",

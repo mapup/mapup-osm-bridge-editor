@@ -2,6 +2,9 @@ import math
 
 import pandas as pd
 
+STRUCTURE_NUMBER = "8 - Structure Number"
+STRUCTURE_LENGTH = "49 - Structure Length (ft.)"
+
 
 def haversine(lon1, lat1, lon2, lat2):
     """
@@ -46,6 +49,54 @@ def extract_coordinates(wkt):
     return float(lat), float(lon)
 
 
+def _resolve_location_single_osm(group, true_stream, min_dist):
+    """
+    Resolve long/lat when combo-count == 1 (single unique OSM id).
+    """
+    if len(true_stream) == 1:
+        long, lat = true_stream[["Long_intersection", "Lat_intersection"]].iloc[0]
+    elif len(true_stream) > 1:
+        min_dist_match = true_stream[true_stream["Is_Min_Dist"]]
+        if not min_dist_match.empty:
+            long, lat = min_dist_match[
+                ["Long_intersection", "Lat_intersection"]
+            ].iloc[0]
+        else:
+            long, lat = true_stream[["Long_intersection", "Lat_intersection"]].iloc[0]
+    else:
+        # If there are no rows with stream_check as TRUE, use MIN-DIST
+        if not min_dist.empty:
+            long, lat = min_dist[["Long_intersection", "Lat_intersection"]].iloc[0]
+        else:
+            long, lat = group[["Long_intersection", "Lat_intersection"]].iloc[0]
+    return long, lat
+
+
+def _resolve_osm_for_multiple(true_stream, min_dist):
+    """
+    Resolve (osm_id, osm_name, stream_id, stream_name, long, lat) when combo-count > 1.
+    """
+    cols = [
+        "osm_id",
+        "name",
+        "permanent_identifier_x",
+        "gnis_name",
+        "Long_intersection",
+        "Lat_intersection",
+    ]
+    if len(true_stream) == 1:
+        # If there is exactly one OSM id with stream_check as TRUE
+        osm_id, osm_name, stream_id, stream_name, long, lat = true_stream[cols].iloc[0]
+    elif not min_dist.empty:
+        # If there are multiple OSM ids with stream_check as TRUE, use 'MIN-DIST'
+        osm_id, osm_name, stream_id, stream_name, long, lat = min_dist[cols].iloc[0]
+    else:
+        osm_id, osm_name, stream_id, stream_name, long, lat = [
+            pd.NA, pd.NA, pd.NA, pd.NA, pd.NA, pd.NA,
+        ]
+    return osm_id, osm_name, stream_id, stream_name, long, lat
+
+
 def determine_final_osm_id(group):
     """
     Function to determine the final_osm_id, final_long, and final_lat for each group
@@ -62,60 +113,11 @@ def determine_final_osm_id(group):
         else:
             stream_id = min_dist["permanent_identifier_x"].iloc[0]
             stream_name = min_dist["gnis_name"].iloc[0]
-
-        if len(true_stream) == 1:
-            long, lat = true_stream[["Long_intersection", "Lat_intersection"]].iloc[0]
-        elif len(true_stream) > 1:
-            min_dist_match = true_stream[true_stream["Is_Min_Dist"]]
-            if not min_dist_match.empty:
-                long, lat = min_dist_match[
-                    ["Long_intersection", "Lat_intersection"]
-                ].iloc[0]
-            else:
-                long, lat = true_stream[["Long_intersection", "Lat_intersection"]].iloc[
-                    0
-                ]
-        else:
-            # If there are no rows with stream_check as TRUE, use MIN-DIST
-            if not min_dist.empty:
-                long, lat = min_dist[["Long_intersection", "Lat_intersection"]].iloc[0]
-            else:
-                long, lat = group[["Long_intersection", "Lat_intersection"]].iloc[0]
+        long, lat = _resolve_location_single_osm(group, true_stream, min_dist)
     else:
-        if len(true_stream) == 1:
-            # If there is exactly one OSM id with stream_check as TRUE
-            osm_id, osm_name, stream_id, stream_name, long, lat = true_stream[
-                [
-                    "osm_id",
-                    "name",
-                    "permanent_identifier_x",
-                    "gnis_name",
-                    "Long_intersection",
-                    "Lat_intersection",
-                ]
-            ].iloc[0]
-        else:
-            # If there are multiple OSM ids with stream_check as TRUE, use 'MIN-DIST'
-            if not min_dist.empty:
-                osm_id, osm_name, stream_id, stream_name, long, lat = min_dist[
-                    [
-                        "osm_id",
-                        "name",
-                        "permanent_identifier_x",
-                        "gnis_name",
-                        "Long_intersection",
-                        "Lat_intersection",
-                    ]
-                ].iloc[0]
-            else:
-                osm_id, osm_name, stream_id, stream_name, long, lat = [
-                    pd.NA,
-                    pd.NA,
-                    pd.NA,
-                    pd.NA,
-                    pd.NA,
-                    pd.NA,
-                ]
+        osm_id, osm_name, stream_id, stream_name, long, lat = _resolve_osm_for_multiple(
+            true_stream, min_dist
+        )
     return pd.Series(
         [osm_id, osm_name, stream_id, stream_name, long, lat],
         index=[
@@ -142,12 +144,6 @@ def merge_join_data_with_intersections(all_join_csv, intersections_csv):
         ["WKT", "osm_id", "permanent_identifier", "gnis_name"]
     ]
 
-    # Ensure 'osm_id' and 'permanent_identifier_x' in df are of the same type as df2 columns
-    final_join_data["osm_id"] = final_join_data["osm_id"]
-    final_join_data["permanent_identifier_x"] = final_join_data[
-        "permanent_identifier_x"
-    ]
-
     # Perform the left merge
     df = pd.merge(
         final_join_data,
@@ -155,6 +151,7 @@ def merge_join_data_with_intersections(all_join_csv, intersections_csv):
         how="left",
         left_on=["osm_id", "permanent_identifier_x"],
         right_on=["osm_id", "permanent_identifier"],
+        validate="many_to_many",
     )
 
     return df
@@ -181,7 +178,7 @@ def create_intermediate_association(df, intermediate_association):
     )
 
     # Calculate minimum Haversine distance for each bridge
-    df["Min_Haversine_dist"] = df.groupby("8 - Structure Number")[
+    df["Min_Haversine_dist"] = df.groupby(STRUCTURE_NUMBER)[
         "Haversine_dist"
     ].transform("min")
 
@@ -194,7 +191,7 @@ def create_intermediate_association(df, intermediate_association):
     )
 
     # Count unique OSM-Bridge combinations
-    df["Unique_Bridge_OSM_Combinations"] = df.groupby("8 - Structure Number")[
+    df["Unique_Bridge_OSM_Combinations"] = df.groupby(STRUCTURE_NUMBER)[
         "osm_id"
     ].transform("nunique")
 
@@ -211,22 +208,22 @@ def create_final_associations(df, association_with_intersections):
     """
     # Group by 'BRIDGE_ID' and calculate the number of unique 'osm_id's for each group
     unique_osm_count = (
-        df.groupby("8 - Structure Number")["osm_id"].nunique().reset_index()
+        df.groupby(STRUCTURE_NUMBER)["osm_id"].nunique().reset_index()
     )
 
     # Rename the column to 'combo-count'
     unique_osm_count.rename(columns={"osm_id": "combo-count"}, inplace=True)
 
     # Merge the unique counts back to the original dataframe
-    df = df.merge(unique_osm_count, on="8 - Structure Number", how="left")
+    df = df.merge(unique_osm_count, on=STRUCTURE_NUMBER, how="left", validate="many_to_many")
 
     # Apply the function to each group and create a new DataFrame with final_osm_id, final_long, and final_lat for each BRIDGE_ID
     final_values_df = (
-        df.groupby("8 - Structure Number").apply(determine_final_osm_id).reset_index()
+        df.groupby(STRUCTURE_NUMBER).apply(determine_final_osm_id).reset_index()
     )
 
     # Merge the final values back to the original dataframe
-    df = df.merge(final_values_df, on="8 - Structure Number", how="left")
+    df = df.merge(final_values_df, on=STRUCTURE_NUMBER, how="left", validate="many_to_many")
 
     # Save the updated dataframe to a new CSV file
     df.to_csv(
@@ -252,21 +249,21 @@ def add_bridge_details(df, nbi_bridge_data, bridge_association_lengths):
         df,
         bridge_data_df[
             [
-                "8 - Structure Number",
-                "49 - Structure Length (ft.)",
+                STRUCTURE_NUMBER,
+                STRUCTURE_LENGTH,
                 "6A - Features Intersected",
                 "7 - Facility Carried By Structure",
-                "49 - Structure Length (ft.)",
             ]
         ],
-        on="8 - Structure Number",
+        on=STRUCTURE_NUMBER,
         how="left",
+        validate="many_to_many",
     )
 
     # Select the required columns and ensure the uniqueness
     result_df = merged_df[
         [
-            "8 - Structure Number",
+            STRUCTURE_NUMBER,
             "final_osm_id",
             "osm_name",
             "final_stream_id",
@@ -275,14 +272,14 @@ def add_bridge_details(df, nbi_bridge_data, bridge_association_lengths):
             "final_lat",
             "6A - Features Intersected",
             "7 - Facility Carried By Structure",
-            "49 - Structure Length (ft.)",
+            STRUCTURE_LENGTH,
             "Unique_Bridge_OSM_Combinations"
         ]
     ].drop_duplicates()
 
     # Rename '49 - Structure Length (ft.)' to 'bridge_length'
     result_df.rename(
-        columns={"49 - Structure Length (ft.)": "bridge_length"}, inplace=True
+        columns={STRUCTURE_LENGTH: "bridge_length"}, inplace=True
     )
 
     # Save the resulting DataFrame to a new CSV file

@@ -85,11 +85,11 @@ def read_exploded_osm_data_csv(exploded_osm_data_csv: str, osm_cols_for_road_nam
             series=pd.read_csv(exploded_osm_data_csv,usecols=[col])
             series_list.append(series)
             available_osm_road_names.append(col)
-        except ValueError as e:
-            logger.warning(f"Column {col} not found in CSV: {e}")
-            raise
         except pd.errors.EmptyDataError as e:
             logger.error(f"Empty data error when reading CSV: {e}", exc_info=True)
+            raise
+        except ValueError as e:
+            logger.warning(f"Column {col} not found in CSV: {e}")
             raise
         except Exception as e:
             logger.error(f"Unexpected error when reading CSV: {e}", exc_info=True)
@@ -138,7 +138,7 @@ def run(bridge_with_proj_points, bridge_match_percentage,exploded_osm_data_csv):
         exploded_osm_data_df['osm_id'] = exploded_osm_data_df['osm_id'].astype('object')
 
         #Merge the data on 'final_osm_id' and 'osm_id'
-        df = pd.merge(df, exploded_osm_data_df, left_on='final_osm_id', right_on='osm_id', how='left')
+        df = pd.merge(df, exploded_osm_data_df, left_on='final_osm_id', right_on='osm_id', how='left', validate="many_to_many")
 
         available_osm_road_names.remove('osm_id')
 

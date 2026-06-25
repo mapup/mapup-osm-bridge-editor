@@ -1,5 +1,8 @@
 import pandas as pd
 
+STRUCTURE_NUMBER = "8 - Structure Number"
+STRUCTURE_NUMBER_2 = "8 - Structure Number_2"
+
 
 def load_bridge_info(csv_file):
     """Load bridge information CSV into a DataFrame."""
@@ -15,7 +18,7 @@ def filter_duplicates_and_output(bridge_df, join_df, output_csv):
     """Filter duplicates based on osm_similarity score and output filtered bridge info."""
 
     filtered_df = join_df[
-        join_df["8 - Structure Number"] != join_df["8 - Structure Number_2"]
+        join_df[STRUCTURE_NUMBER] != join_df[STRUCTURE_NUMBER_2]
     ]
 
     # Set to keep IDs that should be retained
@@ -23,17 +26,17 @@ def filter_duplicates_and_output(bridge_df, join_df, output_csv):
 
     # Iterate over join_df with index to avoid modification during iteration
     for index, row in filtered_df.iterrows():
-        sn1 = row["8 - Structure Number"]
-        sn2 = row["8 - Structure Number_2"]
+        sn1 = row[STRUCTURE_NUMBER]
+        sn2 = row[STRUCTURE_NUMBER_2]
 
         if (sn1 not in remove_ids) and (sn2 not in remove_ids):
             try:
                 # Retrieve osm_similarity scores
                 osm_similarity_sn1 = bridge_df.loc[
-                    bridge_df["8 - Structure Number"] == sn1, "osm_similarity"
+                    bridge_df[STRUCTURE_NUMBER] == sn1, "osm_similarity"
                 ].values[0]
                 osm_similarity_sn2 = bridge_df.loc[
-                    bridge_df["8 - Structure Number"] == sn2, "osm_similarity"
+                    bridge_df[STRUCTURE_NUMBER] == sn2, "osm_similarity"
                 ].values[0]
 
             except IndexError:
@@ -55,7 +58,7 @@ def filter_duplicates_and_output(bridge_df, join_df, output_csv):
     print("IDs to be removed:", remove_ids)
 
     # Filter bridge_df based on retain_ids and output to a new CSV
-    filtered_bridge_df = bridge_df[~bridge_df["8 - Structure Number"].isin(remove_ids)]
+    filtered_bridge_df = bridge_df[~bridge_df[STRUCTURE_NUMBER].isin(remove_ids)]
     filtered_bridge_df.to_csv(output_csv, index=False)
 
     print(f"Filtered bridge information saved to '{output_csv}'.")
