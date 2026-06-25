@@ -29,7 +29,7 @@ Processing.initialize()
 QgsApplication.processingRegistry().addProvider(QgsNativeAlgorithms())
 feedback = QgsProcessingFeedback()
 
-STRUCTURE_NUMBER = STRUCTURE_NUMBER
+STRUCTURE_NUMBER = "8 - Structure Number"
 STRUCTURE_NUMBER_2 = "8 - Structure Number_2"
 MEMORY_OUTPUT = "memory:"
 
