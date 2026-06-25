@@ -118,12 +118,12 @@ def _process_no_additional_ways(current_way, next_way, current_point, next_point
         common_node = current_way_nodes[-1]
 
     if current_point["latitude"] == -1 and current_point["longitude"] == -1:
-        tag_additional_bridge_ways([current_way], bridge_id)
+        tag_way_as_bridge(current_way, bridge_id)
     else:
         add_node_to_way(current_way, LatLon(current_point["latitude"], current_point["longitude"]), True, common_node, bridge_id)
 
     if next_point["latitude"] == -1 and next_point["longitude"] == -1:
-        tag_additional_bridge_ways([next_way], bridge_id)
+        tag_way_as_bridge(next_way, bridge_id)
     else:
         add_node_to_way(next_way, LatLon(next_point["latitude"], next_point["longitude"]), False, common_node, bridge_id)
 
