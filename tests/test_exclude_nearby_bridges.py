@@ -16,10 +16,14 @@ class TestFilterDuplicatesAndOutput(unittest.TestCase):
     def test_removes_lower_similarity(self):
         bridge_df = self._make_bridge_df([("B1", 90), ("B2", 70)])
         join_df = self._make_join_df([("B1", "B2")])
-        with patch("pandas.DataFrame.to_csv"):
+        saved = []
+
+        def capture(path, **kwargs):
+            saved.append(path)
+
+        with patch("pandas.DataFrame.to_csv", side_effect=capture):
             mod.filter_duplicates_and_output(bridge_df, join_df, "/tmp/out.csv")
-        # B2 should be removed (lower score)
-        assert True  # Just ensure no exception is raised
+        assert saved == ["/tmp/out.csv"]
 
     def test_removes_first_when_equal_scores(self):
         bridge_df = self._make_bridge_df([("B1", 80), ("B2", 80)])
