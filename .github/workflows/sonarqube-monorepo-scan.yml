@@ -67,7 +67,7 @@ jobs:
             -Dsonar.sources=.
             -Dsonar.tests=tests
             -Dsonar.test.inclusions=tests/**
-            -Dsonar.exclusions=**/node_modules/**,**/coverage/**,tests/**
+            -Dsonar.exclusions=**/node_modules/**,**/coverage/**,tests/**,**/03-JOSM-1-handle-multi-way-bridge-Jython-engine.py,**/tag_nbi_and_osm_data.py,**/run-hydrography-pipeline.py,**/join_all_data.py,coverage.xml,setup.py
             -Dsonar.python.coverage.reportPaths=coverage.xml
 
       # - name: Update project sheet tab (temporarily disabled)
