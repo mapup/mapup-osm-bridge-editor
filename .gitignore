@@ -10,8 +10,10 @@ output-folder*/
 *.pbf
 *.geojson
 
-# Ignore any file starting with 'test'
+# Ignore any file starting with 'test' (but allow the tests/ directory)
 test*
+!tests/
+!tests/**
 
 # Ignore .DS_Store files
 .DS_Store

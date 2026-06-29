@@ -36,6 +36,18 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         run: echo "Manual trigger - ${{ github.event.inputs.reason }}"
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt pytest pytest-cov
+
+      - name: Run tests with coverage
+        continue-on-error: true
+        run: pytest
+
       - name: SonarQube scan
         uses: SonarSource/sonarqube-scan-action@v7.1.0
         env:
