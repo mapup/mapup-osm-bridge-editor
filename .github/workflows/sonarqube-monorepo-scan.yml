@@ -48,6 +48,15 @@ jobs:
         continue-on-error: true
         run: pytest
 
+      - name: Debug coverage output
+        run: |
+          echo "=== coverage.xml exists? ==="
+          ls -lh coverage.xml 2>/dev/null || echo "coverage.xml NOT found"
+          echo "=== Overall coverage line-rate ==="
+          grep -o 'line-rate="[^"]*"' coverage.xml | head -1 || echo "Could not read line-rate"
+          echo "=== Test counts ==="
+          grep -c "<line" coverage.xml 2>/dev/null || echo "No line elements found"
+
       - name: SonarQube scan
         uses: SonarSource/sonarqube-scan-action@v7.1.0
         env:
