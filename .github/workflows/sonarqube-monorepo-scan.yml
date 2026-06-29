@@ -56,8 +56,10 @@ jobs:
           args: >
             -Dsonar.projectKey=mapup-osm-bridge-editor
             -Dsonar.sources=.
-            -Dsonar.exclusions=**/node_modules/**
-            -Dsonar.python.coverage.reportPaths=**/coverage.xml
+            -Dsonar.tests=tests
+            -Dsonar.test.inclusions=tests/**
+            -Dsonar.exclusions=**/node_modules/**,**/coverage/**,tests/**
+            -Dsonar.python.coverage.reportPaths=coverage.xml
 
       - name: Update project sheet tab
         continue-on-error: true
