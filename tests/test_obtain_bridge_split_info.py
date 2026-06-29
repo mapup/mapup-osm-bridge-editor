@@ -90,13 +90,10 @@ class TestTransformResultPoints(unittest.TestCase):
 
     def test_transforms_valid_points(self):
         transformed = Point(5, 6)
-
-        def fake_transform(fn, pt):
-            return transformed
-
         fwd_utm = Point(1, 2)
         bwd_utm = Point(3, 4)
-        fwd, bwd = mod._transform_result_points(fwd_utm, bwd_utm, fake_transform)
+        with patch("obtain_bridge_split_info.transform", return_value=transformed):
+            fwd, bwd = mod._transform_result_points(fwd_utm, bwd_utm, lambda x, y: (x, y))
         assert fwd == transformed
         assert bwd == transformed
 

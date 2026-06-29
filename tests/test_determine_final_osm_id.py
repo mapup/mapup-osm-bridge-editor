@@ -208,6 +208,7 @@ class TestMergeJoinDataWithIntersections(unittest.TestCase):
 
 class TestAddBridgeDetails(unittest.TestCase):
     def test_returns_none_and_saves(self):
+        # df must NOT already have the columns coming from bridge_data merge
         df = pd.DataFrame({
             mod.STRUCTURE_NUMBER: ["B1"],
             "final_osm_id": ["osm1"],
@@ -216,8 +217,6 @@ class TestAddBridgeDetails(unittest.TestCase):
             "stream_name": ["Creek"],
             "final_long": [1.0],
             "final_lat": [2.0],
-            "6A - Features Intersected": ["Feature"],
-            "7 - Facility Carried By Structure": ["Road"],
             "Unique_Bridge_OSM_Combinations": [1],
         })
         bridge_data = pd.DataFrame({

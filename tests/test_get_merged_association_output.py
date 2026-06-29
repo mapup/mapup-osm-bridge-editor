@@ -46,11 +46,12 @@ class TestExtractCoordinates(unittest.TestCase):
         assert x == 10.0 and y == 20.0
 
     def test_geometry_without_xy_raises(self):
-        geom = MagicMock(spec=[])  # no x/y attribute
-        geom.__bool__ = lambda self: True
+        class BadGeom:
+            pass  # no x/y attribute
+
         with patch("pandas.isnull", return_value=False):
             with self.assertRaises(AttributeError):
-                mod.extract_coordinates(geom)
+                mod.extract_coordinates(BadGeom())
 
 
 class TestUpdateStats(unittest.TestCase):

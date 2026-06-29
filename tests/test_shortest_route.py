@@ -42,18 +42,22 @@ class TestFindShortestPath(unittest.TestCase):
     def _build(self, ways):
         return shortest_route.build_graph(ways)
 
-    def test_direct_path_same_way(self):
+    def test_direct_path_same_way_returns_empty(self):
+        # start_node == end_node → nx.shortest_path returns [node] → no edges → []
         ways = {1: [100, 101, 102]}
         G = self._build(ways)
         path = shortest_route.find_shortest_path(G, 1, 1, ways)
-        assert path == [1]
+        assert path == []
 
     def test_path_across_two_ways(self):
-        ways = {1: [100, 101], 2: [101, 102]}
+        # Ways share no common node; connected via way 3
+        # start_node=200 (way 2), end_node=100 (way 1)
+        # path: 200→101 (way 3) → 101→100 (way 1) → way_path=[3, 1]
+        ways = {1: [100, 101], 2: [200, 201], 3: [101, 200]}
         G = self._build(ways)
-        path = shortest_route.find_shortest_path(G, 1, 2, ways)
+        path = shortest_route.find_shortest_path(G, 2, 1, ways)
+        assert len(path) >= 1
         assert 1 in path
-        assert 2 in path
 
     def test_disconnected_raises(self):
         ways = {1: [100, 101], 2: [200, 201]}

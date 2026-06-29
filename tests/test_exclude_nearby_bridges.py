@@ -42,13 +42,7 @@ class TestFilterDuplicatesAndOutput(unittest.TestCase):
     def test_empty_join_df_produces_full_output(self):
         bridge_df = self._make_bridge_df([("B1", 90), ("B2", 70)])
         join_df = self._make_join_df([])
-        written_df = None
-
-        def capture_csv(path, **kwargs):
-            nonlocal written_df
-            written_df = bridge_df  # no removals
-
-        with patch("pandas.DataFrame.to_csv", capture_csv):
+        with patch("pandas.DataFrame.to_csv"):
             mod.filter_duplicates_and_output(bridge_df, join_df, "/tmp/out.csv")
 
     def test_already_in_remove_ids_skips(self):
