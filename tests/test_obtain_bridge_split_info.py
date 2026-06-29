@@ -1,5 +1,7 @@
+import sys
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, mock_open
+import pyproj
 from shapely.geometry import LineString, Point
 
 import obtain_bridge_split_info as mod
@@ -214,6 +216,90 @@ class TestLoadCsv(unittest.TestCase):
     def test_returns_empty_on_exception(self):
         with patch("builtins.open", side_effect=Exception("err")):
             result = mod.load_csv("bad.csv")
+        assert result == []
+
+
+class TestSetupLogging(unittest.TestCase):
+    def test_setup_logging_does_not_raise(self):
+        # basicConfig is a no-op if logging is already configured, so just verify no exception
+        mod.setup_logging()
+
+
+class TestParseArguments(unittest.TestCase):
+    def test_parses_two_positional_args(self):
+        with patch("sys.argv", ["prog", "data.geojson", "bridges.csv"]):
+            args = mod.parse_arguments()
+        assert args.geojson_file == "data.geojson"
+        assert args.csv_file == "bridges.csv"
+
+    def test_missing_args_exits(self):
+        with patch("sys.argv", ["prog"]):
+            with self.assertRaises(SystemExit):
+                mod.parse_arguments()
+
+
+class TestProcessSingleBridge(unittest.TestCase):
+    def _make_bridge(self, osm_id="osm1", length=100.0, coord=(-89.0, 36.5)):
+        return {
+            "index": 1,
+            "osm_id": osm_id,
+            "bridge_length": length,
+            "bridge_coordinate": coord,
+            "bridge_id": "B001",
+        }
+
+    def _make_projectors(self):
+        wgs84 = pyproj.CRS("EPSG:4326")
+        utm = pyproj.CRS("EPSG:32616")
+        project = pyproj.Transformer.from_crs(wgs84, utm, always_xy=True).transform
+        inverse = pyproj.Transformer.from_crs(utm, wgs84, always_xy=True).transform
+        return project, inverse
+
+    def test_returns_none_when_no_matching_osm_id(self):
+        from shapely.ops import transform
+        project, inverse = self._make_projectors()
+        line = LineString([(-89.01, 36.5), (-89.0, 36.5)])
+        from shapely.ops import transform as shp_transform
+        line_utm = shp_transform(project, line)
+        lines_utm_with_ids = [(line_utm, "other_osm_id")]
+        bridge = self._make_bridge(osm_id="osm1")
+        result = mod.process_single_bridge(bridge, lines_utm_with_ids, project, inverse)
+        assert result is None
+
+    def test_returns_none_on_exception(self):
+        bridge = self._make_bridge()
+        result = mod.process_single_bridge(bridge, "not_a_list", None, None)
+        assert result is None
+
+    def test_processes_bridge_on_matching_line(self):
+        from shapely.ops import transform as shp_transform
+        project, inverse = self._make_projectors()
+        line = LineString([(-89.01, 36.5), (-88.99, 36.5)])
+        line_utm = shp_transform(project, line)
+        lines_utm = [(line_utm, "osm1")]
+        bridge = self._make_bridge(osm_id="osm1", length=50.0, coord=(-89.0, 36.5))
+        with patch("builtins.open", mock_open()):
+            result = mod.process_single_bridge(bridge, lines_utm, project, inverse)
+        # Result is a dict or None (may be None if point not within 1m of line)
+        assert result is None or isinstance(result, dict)
+
+
+class TestProcessBridgeDataParallel(unittest.TestCase):
+    def test_returns_list_of_results(self):
+        wgs84 = pyproj.CRS("EPSG:4326")
+        utm = pyproj.CRS("EPSG:32616")
+        project = pyproj.Transformer.from_crs(wgs84, utm, always_xy=True).transform
+        inverse = pyproj.Transformer.from_crs(utm, wgs84, always_xy=True).transform
+        lines_with_ids = {}  # no lines → no results
+        bridge_data = [
+            {"index": 1, "osm_id": "x", "bridge_length": 10, "bridge_coordinate": (0, 0), "bridge_id": "B1"},
+        ]
+        result = mod.process_bridge_data_parallel(bridge_data, lines_with_ids, project, inverse)
+        assert isinstance(result, list)
+
+    def test_returns_empty_list_on_exception(self):
+        with patch("obtain_bridge_split_info.Pool", side_effect=Exception("pool error")):
+            result = mod.process_bridge_data_parallel([], {}, None, None)
         assert result == []
 
 

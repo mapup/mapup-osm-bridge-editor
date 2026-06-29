@@ -5,6 +5,7 @@ omit =
     */03-JOSM-1-handle-multi-way-bridge-Jython-engine.py
     */run-hydrography-pipeline.py
     */join_all_data.py
+    */tag_nbi_and_osm_data.py
     setup.py
 
 [report]

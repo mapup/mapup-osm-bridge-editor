@@ -2,6 +2,7 @@ import sys
 import os
 import unittest
 import importlib.util
+from unittest.mock import patch, MagicMock
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _script_path = os.path.join(
@@ -36,6 +37,40 @@ class TestBuildGraph(unittest.TestCase):
     def test_empty_ways(self):
         G = shortest_route.build_graph({})
         assert G.number_of_nodes() == 0
+
+
+class TestWayHandler(unittest.TestCase):
+    def test_init_has_empty_ways_and_nodes(self):
+        handler = shortest_route.WayHandler()
+        assert handler.ways == {}
+        assert handler.nodes == set()
+
+    def test_way_method_stores_node_refs(self):
+        handler = shortest_route.WayHandler()
+        mock_way = MagicMock()
+        mock_way.id = 42
+        node1 = MagicMock()
+        node1.ref = 100
+        node2 = MagicMock()
+        node2.ref = 101
+        mock_way.nodes = [node1, node2]
+        handler.way(mock_way)
+        assert 42 in handler.ways
+        assert handler.ways[42] == [100, 101]
+
+
+class TestMain(unittest.TestCase):
+    def test_main_calls_handler_and_prints(self):
+        ways = {1: [100, 101], 2: [101, 102]}
+
+        def fake_apply_file(self_handler, path):
+            self_handler.ways = ways
+
+        with patch.object(shortest_route.WayHandler, 'apply_file', fake_apply_file), \
+             patch('builtins.print'):
+            # start_way=1, end_way=2 → path goes 100→101→102, way_path=[1, 2]
+            # pop(0) removes 1, leaving [2]
+            shortest_route.main("any.osm", 1, 2)
 
 
 class TestFindShortestPath(unittest.TestCase):

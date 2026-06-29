@@ -113,6 +113,50 @@ class TestReadGeopackageToDataframe(unittest.TestCase):
             result = mod.read_geopackage_to_dataframe("file.gpkg")
         assert result is mock_gdf
 
+    def test_permission_error_raises(self):
+        with patch("geopandas.read_file", side_effect=PermissionError):
+            with self.assertRaises(PermissionError):
+                mod.read_geopackage_to_dataframe("locked.gpkg")
+
+    def test_generic_exception_raises(self):
+        # gpd.io.file.DriverError may not exist in all geopandas versions;
+        # a non-file/permission error will either be caught by the generic handler or propagate
+        with patch("geopandas.read_file", side_effect=OSError("unexpected")):
+            with self.assertRaises((OSError, AttributeError)):
+                mod.read_geopackage_to_dataframe("bad.gpkg")
+
+
+class TestCalculateOsmSimilarityExceptions(unittest.TestCase):
+    def test_type_error_propagates(self):
+        with patch("fuzzywuzzy.fuzz.token_sort_ratio", side_effect=TypeError("bad type")):
+            with self.assertRaises(TypeError):
+                mod.calculate_osm_similarity("a", "b")
+
+    def test_value_error_propagates(self):
+        with patch("fuzzywuzzy.fuzz.token_sort_ratio", side_effect=ValueError("bad val")):
+            with self.assertRaises(ValueError):
+                mod.calculate_osm_similarity("a", "b")
+
+    def test_generic_exception_propagates(self):
+        with patch("fuzzywuzzy.fuzz.token_sort_ratio", side_effect=RuntimeError("crash")):
+            with self.assertRaises(RuntimeError):
+                mod.calculate_osm_similarity("a", "b")
+
+
+class TestExtractCoordinatesExceptions(unittest.TestCase):
+    def test_generic_exception_propagates(self):
+        class BadGeom:
+            @property
+            def x(self):
+                raise RuntimeError("corrupt geometry")
+            @property
+            def y(self):
+                raise RuntimeError("corrupt geometry")
+
+        with patch("pandas.isnull", return_value=False):
+            with self.assertRaises((RuntimeError, AttributeError)):
+                mod.extract_coordinates(BadGeom())
+
 
 if __name__ == "__main__":
     unittest.main()
