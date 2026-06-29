@@ -70,5 +70,16 @@ jobs:
             -Dsonar.exclusions=**/node_modules/**,**/coverage/**,tests/**,**/03-JOSM-1-handle-multi-way-bridge-Jython-engine.py,**/tag_nbi_and_osm_data.py,**/run-hydrography-pipeline.py,**/join_all_data.py,coverage.xml,setup.py,**/*.js
             -Dsonar.python.coverage.reportPaths=coverage.xml
 
-      # - name: Update project sheet tab (temporarily disabled)
+      - name: Update project sheet tab
+        continue-on-error: true
+        run: |
+          sleep 120
+          RESPONSE=$(curl -s -L \
+            "${{ secrets.APPS_SCRIPT_WEB_APP_URL }}?project=mapup-osm-bridge-editor")
+          echo "Sheet update response: $RESPONSE"
+          if [ "$RESPONSE" = "ok" ]; then
+            echo "✅ Sheet updated successfully"
+          else
+            echo "⚠️ Sheet update may have failed: $RESPONSE"
+          fi
 
