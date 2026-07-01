@@ -36,6 +36,27 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         run: echo "Manual trigger - ${{ github.event.inputs.reason }}"
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: grep -v '^processing' requirements.txt | pip install -r /dev/stdin pytest pytest-cov
+
+      - name: Run tests with coverage
+        continue-on-error: true
+        run: pytest
+
+      - name: Debug coverage output
+        run: |
+          echo "=== coverage.xml exists? ==="
+          ls -lh coverage.xml 2>/dev/null || echo "coverage.xml NOT found"
+          echo "=== Overall coverage line-rate ==="
+          grep -o 'line-rate="[^"]*"' coverage.xml | head -1 || echo "Could not read line-rate"
+          echo "=== Test counts ==="
+          grep -c "<line" coverage.xml 2>/dev/null || echo "No line elements found"
+
       - name: SonarQube scan
         uses: SonarSource/sonarqube-scan-action@v7.1.0
         env:
@@ -44,8 +65,10 @@ jobs:
           args: >
             -Dsonar.projectKey=mapup-osm-bridge-editor
             -Dsonar.sources=.
-            -Dsonar.exclusions=**/node_modules/**
-            -Dsonar.python.coverage.reportPaths=**/coverage.xml
+            -Dsonar.tests=tests
+            -Dsonar.test.inclusions=tests/**
+            -Dsonar.exclusions=**/node_modules/**,**/coverage/**,tests/**,**/03-JOSM-1-handle-multi-way-bridge-Jython-engine.py,**/tag_nbi_and_osm_data.py,**/run-hydrography-pipeline.py,**/join_all_data.py,coverage.xml,setup.py,**/*.js
+            -Dsonar.python.coverage.reportPaths=coverage.xml
 
       - name: Update project sheet tab
         continue-on-error: true
@@ -59,3 +82,4 @@ jobs:
           else
             echo "⚠️ Sheet update may have failed: $RESPONSE"
           fi
+

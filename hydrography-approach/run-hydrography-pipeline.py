@@ -88,27 +88,30 @@ def main():
     exploded_osm_data_csv = config["output_files"]["exploded_osm_data_csv"]
 
     print("\nTagging NBI and OSM data.")
+    tagging_paths = tag_nbi_and_osm_data.TaggingPaths(
+        bridge_yes_join_csv=bridge_yes_join_csv,
+        yes_filter_bridges=yes_filter_bridges,
+        manmade_join_csv=manmade_join_csv,
+        manmade_filter_bridges=manmade_filter_bridges,
+        parallel_join_csv=parallel_join_csv,
+        parallel_filter_bridges=parallel_filter_bridges,
+        nearby_join_csv=nearby_join_csv,
+        culvert_join_csv=culvert_join_csv,
+        final_bridges=final_bridges,
+        intersections_csv=intersections_csv,
+        osm_nhd_join_csv=osm_nhd_join_csv,
+        nbi_10_join_csv=nbi_10_join_csv,
+        nbi_30_join_csv=nbi_30_join_csv,
+        exploded_osm_data_csv=exploded_osm_data_csv,
+    )
     tag_nbi_and_osm_data.process_tagging(
         nbi_geopackage,
         filtered_highways,
         state_latest_osm,
-        bridge_yes_join_csv,
-        yes_filter_bridges,
-        manmade_join_csv,
-        manmade_filter_bridges,
-        parallel_join_csv,
-        parallel_filter_bridges,
-        nearby_join_csv,
         state_folder,
         state_name,
-        culvert_join_csv,
-        final_bridges,
         rivers_data,
-        intersections_csv,
-        osm_nhd_join_csv,
-        nbi_10_join_csv,
-        nbi_30_join_csv,
-        exploded_osm_data_csv
+        tagging_paths,
     )
 
     # --------------------------------------------Associate join data--------------------------------------------

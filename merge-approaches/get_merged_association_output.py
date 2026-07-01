@@ -51,9 +51,6 @@ def read_geopackage_to_dataframe(filepath: str) -> gpd.GeoDataFrame:
     except PermissionError as e:
         logger.error(f"PermissionError: Unable to access GeoPackage file at {filepath}: {str(e)}", exc_info=True)
         raise
-    except gpd.io.file.DriverError as e:
-        logger.error(f"DriverError: Unable to read GeoPackage file at {filepath}: {str(e)}", exc_info=True)
-        raise
     except Exception as e:
         logger.error(f"Unexpected error while reading GeoPackage file at {filepath}: {str(e)}", exc_info=True)
         raise
@@ -160,10 +157,10 @@ def update_stats(stats: pd.DataFrame, description: str, count: int, stats_list: 
 
 def main():
     try:
-        neighbouring_roads_output = "grouped_neighbouring_roads.csv"
-        mile_point_output = "osm_road_points.gpkg"
-        hydrography_output = "hydrography-method/output-data/csv-files/Final-bridges-with-percentage-match.csv"
-        bridge_edit_stats = "hydrography-method/output-data/csv-files/Kentucky-bridge-edit-stats.csv"
+        neighbouring_roads_output = "mile-point-approach/grouped_neighbouring_roads.csv"
+        mile_point_output = "mile-point-approach/osm_road_points.gpkg"
+        hydrography_output = "hydrography-approach/output-data/Kentucky/csv-files/Final-bridges-with-percentage-match.csv"
+        bridge_edit_stats = "hydrography-approach/output-data/Kentucky/csv-files/Kentucky-bridge-edit-stats.csv"
         similarity_threshold = 70
         prepare_bridge_stats = True
         
