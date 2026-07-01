@@ -24,7 +24,7 @@ class BufferDistance(Enum):
 class FilePath(Enum):
     """Enum for file paths."""
     OSM_ROAD_POINTS = "osm_road_points.gpkg"
-    STATE_ROAD = "ky-roads-with-unique-id.gpkg"
+    STATE_ROAD = "ky_roads_with_unique_id.gpkg"
 
 class SpatialPredicate(Enum):
     """Enum for spatial join predicates."""
